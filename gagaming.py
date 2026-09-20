@@ -48,7 +48,7 @@ logging.basicConfig(
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
   keyboard = [
     [InlineKeyboardButton("MUA ACC BLOX FRUITS", callback_data="buy_menu")],
-    [InlineKeyboardButton("Lien He / Ho Tro Zalo", url="https://zalo.me/0828433497")],
+    [InlineKeyboardButton("Lien He / Ho Tro Zalo", url="https://zalo.me/0338976200")],
   ]
   reply_markup = InlineKeyboardMarkup(keyboard)
 
