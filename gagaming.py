@@ -10,7 +10,7 @@ from telegram.ext import (
 )
 
 # Token của bot bán hàng
-TOKEN = "8664286603:AAH0MrUh5IcyM5dK5qPEMIeZu9GDac1bcPg"
+TOKEN = "8664286603:AAHqLdiV8Ecw_zHurZEifaObLlaVkqZVBss"
 
 # ID Telegram của Gà Gaming Shop
 ADMIN_ID = 8976860826
