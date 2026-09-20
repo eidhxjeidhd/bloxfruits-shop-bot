@@ -132,6 +132,55 @@ def main():
 
 if __name__ == "__main__":
     main()
+            [InlineKeyboardButton("Acc Lv 1500 - 20.000đ", callback_data="p_1500")]
+        ]
+        await query.edit_message_text("CHỌN GÓI ACC:", reply_markup=InlineKeyboardMarkup(kb))
+        
+    elif query.data.startswith("p_"):
+        pack_id = query.data
+        p_name = "Acc Lv 700" if pack_id == "p_700" else "Acc Lv 1500"
+        price = "10.000đ" if pack_id == "p_700" else "20.000đ"
+        
+        context.user_data["pack_id"] = pack_id
+        waiting_bill[query.from_user.id] = True
+        
+        await query.edit_message_text(
+            f"Bạn đã chọn: {p_name} ({price})\n\n"
+            "CHUYỂN KHOẢN ZALOPAY:\n"
+            "SĐT: 0338976200\n"
+            "Nội dung: Mua nick + SĐT\n\n"
+            "Gửi ảnh bill vào đây để bot duyệt!"
+        )
+    elif query.data.startswith("approve_"):
+        uid = int(query.data.split("_")[1])
+        pack_id = context.user_data.get("pack_id", "p_1500")
+        acc = ACCOUNTS.get(pack_id, [("Hết", "Hết")])[0]
+        
+        await context.bot.send_message(chat_id=uid, text=f"ĐÃ DUYỆT!\nUser: {acc[0]}\nPass: {acc[1]}")
+        await query.edit_message_caption(caption="ĐÃ DUYỆT CHO KHÁCH!", reply_markup=None)
+
+async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    uid = update.message.from_user.id
+    if waiting_bill.get(uid):
+        await update.message.reply_text("Đã nhận bill! Chờ admin duyệt nhé.")
+        kb = [[InlineKeyboardButton("✅ Duyệt cấp acc", callback_data=f"approve_{uid}")]]
+        await context.bot.send_photo(
+            chat_id=ADMIN_ID,
+            photo=update.message.photo[-1].file_id,
+            caption=f"Khách {uid} vừa gửi bill!",
+            reply_markup=InlineKeyboardMarkup(kb)
+        )
+        waiting_bill[uid] = False
+
+def main():
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(callback_handler))
+    app.add_handler(MessageHandler(filters.PHOTO, photo_handler))
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
 name__ == "__main__":
   main()
  select_package(update: Update, context: ContextTypes.DEFAULT_TYPE):
