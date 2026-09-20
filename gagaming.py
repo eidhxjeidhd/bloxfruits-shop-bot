@@ -16,17 +16,13 @@ TOKEN = "8664286603:AAH0MrUh5IcyM5dK5qPEMIeZu9GDac1bcPg"
 ADMIN_ID = 8976860826
 
 # --- KHO TÀI KHOẢN TỰ ĐỘNG CỦA SHOP ---
-# Bạn có thể thêm nhiều nick vào danh sách này, dạng ("Tài khoản", "Mật khẩu")
 ACCOUNT_STOCKS = {
     "pack_700": [
         ("user_700_1", "pass_700_1"),
         ("user_700_2", "pass_700_2"),
     ],
     "pack_1500": [
-        (
-            "ohyflrs333",
-            "080439123",
-        ),  # Tài khoản Lv 1500 bạn vừa đưa vào đây
+        ("ohyflrs333", "080439123"),
     ],
     "pack_godhuman": [
         ("user_god_1", "pass_god_1"),
@@ -202,11 +198,8 @@ async def admin_approval_handler(update: Update, context: ContextTypes.DEFAULT_T
   if action == "approve":
     pack_key = context.user_data.get("buying_pack_key", "pack_1500")
 
-    # Lấy ra tài khoản đầu tiên trong kho của gói đó
     if ACCOUNT_STOCKS.get(pack_key) and len(ACCOUNT_STOCKS[pack_key]) > 0:
-      acc_user, acc_pass = ACCOUNT_STOCKS[pack_key].pop(
-          0
-      )  # Lấy và xóa luôn khỏi kho để không bị lặp
+      acc_user, acc_pass = ACCOUNT_STOCKS[pack_key].pop(0)
     else:
       acc_user, acc_pass = (
           "Hết tài khoản trong kho!",
