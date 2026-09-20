@@ -130,7 +130,7 @@ async def select_package(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Bạn đã chọn: {p_name}\n"
         f"Giá tiền: {p_price}\n\n"
         "HUONG DAN THANH TOAN ZALOPAY:\n"
-        "1. Chuyển khoản qua số: 0828433497 (Chủ ví: NGUYEN VAN DUONG)\n"
+        "1. Chuyển khoản qua số: 0338976200 (Chủ ví: Gà Gaming)\n"
         "2. Nội dung CK: Mua nick + SĐT của bạn\n\n"
         "Sau khi chuyển khoản xong, bạn hãy GỬI ẢNH CHỤP BILL vào đây để bot gửi cho Gà Gaming xác nhận nhé!"
     )
@@ -230,19 +230,26 @@ async def admin_approval_handler(update: Update, context: ContextTypes.DEFAULT_T
     )
 
 
+async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
+  query = update.callback_query
+  data = query.data
+
+  if data == "buy_menu" or data == "back_home":
+    await buy_menu(update, context)
+  elif data.startswith("pack_"):
+    await select_package(update, context)
+  elif data.startswith("approve_") or data.startswith("reject_"):
+    await admin_approval_handler(update, context)
+
+
 def main():
   app = ApplicationBuilder().token(TOKEN).build()
 
   app.add_handler(CommandHandler("start", start))
-  app.add_handler(CallbackQueryHandler(buy_menu, pattern="^buy_menu$"))
-  app.add_handler(CallbackQueryHandler(select_package, pattern="^pack_"))
-  app.add_handler(CallbackQueryHandler(start, pattern="^back_home$"))
+  app.add_handler(CallbackQueryHandler(button_router))
   app.add_handler(MessageHandler(filters.PHOTO, handle_incoming_photo))
-  app.add_handler(
-      CallbackQueryHandler(admin_approval_handler, pattern="^(approve|reject)_")
-  )
 
-  print("Bot Gà Gaming Blox Fruits với kho tài khoản thông minh đang chạy...")
+  print("Bot Gà Gaming đang chạy...")
   app.run_polling()
 
 
