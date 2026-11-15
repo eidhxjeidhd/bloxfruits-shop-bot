@@ -1,19 +1,26 @@
 import os
 import sqlite3
 import uuid
-from flask import Flask, redirect, render_template_string, request, url_for
+from flask import Flask, redirect, render_template_string, request, send_from_directory, url_for
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
+
+# Thư mục lưu trữ file trên Render
+UPLOAD_FOLDER = 'uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Khởi tạo Database SQLite
 def init_db():
     conn = sqlite3.connect('cloud.db', check_same_thread=False)
     cursor = conn.cursor()
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS links (
+        CREATE TABLE IF NOT EXISTS files (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             code TEXT UNIQUE,
-            content TEXT
+            filename TEXT,
+            original_name TEXT
         )
     ''')
     conn.commit()
@@ -21,65 +28,67 @@ def init_db():
 
 init_db()
 
-HOME_TEMPLATE = """
+DASHBOARD_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Termux Mini Cloud</title>
+    <title>Mini Cloud Storage</title>
     <style>
-        body { font-family: sans-serif; background: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .card { background: #1e293b; padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 500px; width: 90%; border: 1px solid #334155; }
+        body { font-family: sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 750px; }
+        .card { background: #1e293b; padding: 25px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #334155; margin-bottom: 20px; }
         h2 { color: #38bdf8; margin-top: 0; text-align: center; }
-        textarea { width: 100%; height: 100px; background: #0f172a; border: 1px solid #334155; color: #e2e8f0; padding: 10px; border-radius: 8px; box-sizing: border-box; resize: vertical; font-size: 14px; }
-        button { background: #0284c7; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 15px; font-size: 16px; }
+        .upload-box { border: 2px dashed #475569; padding: 20px; text-align: center; border-radius: 10px; background: #0f172a; margin-bottom: 15px; }
+        input[type="file"] { color: #94a3b8; margin-bottom: 10px; }
+        button { background: #0284c7; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; font-size: 16px; }
         button:hover { background: #0ea5e9; }
-        .result { margin-top: 20px; background: #0f172a; padding: 15px; border-radius: 8px; border: 1px solid #334155; word-break: break-all; }
-        a { color: #38bdf8; text-decoration: none; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; font-size: 14px; }
+        th { color: #38bdf8; }
+        a { color: #38bdf8; text-decoration: none; word-break: break-all; }
         a:hover { text-decoration: underline; }
-        .public-badge { background: #065f46; color: #34d399; padding: 6px 10px; border-radius: 8px; font-size: 12px; margin-bottom: 15px; text-align: center; }
+        .badge { background: #065f46; color: #34d399; padding: 6px 10px; border-radius: 8px; font-size: 12px; text-align: center; margin-bottom: 15px; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h2>☁️ Termux Mini Cloud</h2>
-        <div class="public-badge">🌐 Đang chạy trên Cloud Render</div>
-        <form action="/add" method="POST">
-            <textarea name="content" placeholder="Nhập nội dung cần lưu trữ vào đây..." required></textarea>
-            <button type="submit">Tạo Link Lưu Trữ</button>
-        </form>
-        {% if link %}
-        <div class="result">
-            <p style="margin:0 0 5px 0; color:#94a3b8; font-size:13px;">Đã tạo link thành công:</p>
-            <a href="{{ link }}" target="_blank">{{ link }}</a>
+    <div class="container">
+        <div class="card">
+            <h2>☁️ Mini Cloud Storage</h2>
+            <div class="badge">🌐 Đang chạy công khai trên Render</div>
+            <form action="/upload" method="POST" enctype="multipart/form-data">
+                <div class="upload-box">
+                    <input type="file" name="file" required><br>
+                    <span style="color: #64748b; font-size: 13px;">Chọn file bất kỳ để tải lên mây</span>
+                </div>
+                <button type="submit">🚀 Tải Lên Cloud</button>
+            </form>
         </div>
-        {% endif %}
-    </div>
-</body>
-</html>
-"""
 
-VIEW_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Xem Nội Dung - Cloud</title>
-    <style>
-        body { font-family: sans-serif; background: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .card { background: #1e293b; padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 600px; width: 90%; border: 1px solid #334155; word-break: break-word; }
-        h2 { color: #38bdf8; margin-top: 0; }
-        pre { white-space: pre-wrap; background: #0f172a; padding: 15px; border-radius: 8px; border: 1px solid #334155; color: #e2e8f0; font-family: monospace; font-size: 14px; }
-        .back { display: inline-block; margin-top: 15px; color: #38bdf8; text-decoration: none; font-size: 14px; }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <h2>📄 Nội Dung Lưu Trữ</h2>
-        <pre>{{ content }}</pre>
-        <a class="back" href="/">← Quay lại trang chủ</a>
+        <div class="card">
+            <h3 style="color: #e2e8f0; margin-top: 0;">📂 Danh Sách File Đã Tải Lên</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tên File</th>
+                        <th>Link Tải Công Khai</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for file in files %}
+                    <tr>
+                        <td><strong>{{ file[2] }}</strong></td>
+                        <td><a href="{{ request.url_root }}d/{{ file[1] }}" target="_blank">{{ request.url_root }}d/{{ file[1] }}</a></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="2" style="text-align: center; color: #64748b;">Chưa có file nào được tải lên.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </body>
 </html>
@@ -87,40 +96,52 @@ VIEW_TEMPLATE = """
 
 @app.route('/')
 def home():
-    return render_template_string(HOME_TEMPLATE, link=None)
-
-@app.route('/add', methods=['POST'])
-def add_content():
-    content = request.form.get('content')
-    if not content:
-        return redirect(url_for('home'))
-        
-    code = str(uuid.uuid4())[:6]
-    
     conn = sqlite3.connect('cloud.db', check_same_thread=False)
     cursor = conn.cursor()
-    cursor.execute('INSERT INTO links (code, content) VALUES (?, ?)', (code, content))
-    conn.commit()
+    cursor.execute('SELECT id, code, original_name FROM files ORDER BY id DESC')
+    files = cursor.fetchall()
     conn.close()
-    
-    # 🌟 Tự động nhận diện domain của Render (ví dụ: https://its-shop-bot-3.onrender.com/s/code)
-    link = f"{request.url_root}s/{code}"
-    return render_template_string(HOME_TEMPLATE, link=link)
+    return render_template_string(DASHBOARD_TEMPLATE, files=files)
 
-@app.route('/s/<code>')
-def view_content(code):
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return redirect(url_for('home'))
+    
+    file = request.files['file']
+    if file.filename == '':
+        return redirect(url_for('home'))
+    
+    if file:
+        original_name = secure_filename(file.filename)
+        code = str(uuid.uuid4())[:8]
+        saved_filename = f"{code}_{original_name}"
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], saved_filename)
+        file.save(file_path)
+        
+        conn = sqlite3.connect('cloud.db', check_same_thread=False)
+        cursor = conn.cursor()
+        cursor.execute('INSERT INTO files (code, filename, original_name) VALUES (?, ?, ?)', 
+                       (code, saved_filename, original_name))
+        conn.commit()
+        conn.close()
+        
+    return redirect(url_for('home'))
+
+@app.route('/d/<code>')
+def download_file(code):
     conn = sqlite3.connect('cloud.db', check_same_thread=False)
     cursor = conn.cursor()
-    cursor.execute('SELECT content FROM links WHERE code = ?', (code,))
+    cursor.execute('SELECT filename, original_name FROM files WHERE code = ?', (code,))
     row = cursor.fetchone()
     conn.close()
     
     if row:
-        return render_template_string(VIEW_TEMPLATE, content=row[0])
+        saved_filename, original_name = row
+        return send_from_directory(app.config['UPLOAD_FOLDER'], saved_filename, as_attachment=True, download_name=original_name)
     else:
-        return "<h2 style='text-align:center; color:#ef4444; margin-top:50px; font-family:sans-serif;'>❌ Link không tồn tại hoặc đã bị xóa!</h2>", 404
+        return "<h2 style='text-align:center; color:#ef4444; margin-top:50px; font-family:sans-serif;'>❌ File không tồn tại!</h2>", 404
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
-    
