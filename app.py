@@ -2,16 +2,10 @@ import os
 import sqlite3
 import uuid
 from flask import Flask, redirect, render_template_string, request, url_for
-from pyngrok import ngrok, conf
 
 app = Flask(__name__)
 
-# Tự động nhận diện Authtoken từ biến môi trường khi chạy lệnh
-auth_token = os.environ.get("NGROK_AUTHTOKEN")
-if auth_token:
-    conf.get_default().auth_token = auth_token
-
-# Khởi tạo Database SQLite cục bộ trên Termux
+# Khởi tạo Database SQLite
 def init_db():
     conn = sqlite3.connect('cloud.db', check_same_thread=False)
     cursor = conn.cursor()
@@ -27,15 +21,13 @@ def init_db():
 
 init_db()
 
-PUBLIC_URL = ""
-
 HOME_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Termux Auto Cloud</title>
+    <title>Termux Mini Cloud</title>
     <style>
         body { font-family: sans-serif; background: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
         .card { background: #1e293b; padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 500px; width: 90%; border: 1px solid #334155; }
@@ -51,8 +43,8 @@ HOME_TEMPLATE = """
 </head>
 <body>
     <div class="card">
-        <h2>☁️ Termux Auto Cloud</h2>
-        <div class="public-badge">🌐 Đang mở online qua Ngrok</div>
+        <h2>☁️ Termux Mini Cloud</h2>
+        <div class="public-badge">🌐 Đang chạy trên Cloud Render</div>
         <form action="/add" method="POST">
             <textarea name="content" placeholder="Nhập nội dung cần lưu trữ vào đây..." required></textarea>
             <button type="submit">Tạo Link Lưu Trữ</button>
@@ -111,7 +103,8 @@ def add_content():
     conn.commit()
     conn.close()
     
-    link = f"{PUBLIC_URL}/s/{code}"
+    # 🌟 Tự động nhận diện domain của Render (ví dụ: https://its-shop-bot-3.onrender.com/s/code)
+    link = f"{request.url_root}s/{code}"
     return render_template_string(HOME_TEMPLATE, link=link)
 
 @app.route('/s/<code>')
@@ -128,11 +121,6 @@ def view_content(code):
         return "<h2 style='text-align:center; color:#ef4444; margin-top:50px; font-family:sans-serif;'>❌ Link không tồn tại hoặc đã bị xóa!</h2>", 404
 
 if __name__ == '__main__':
-    public_url = ngrok.connect(5000)
-    PUBLIC_URL = str(public_url).split('"')[1]
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
     
-    print(f"\n==============================================")
-    print(f"🌐 LINK TRANG CHỦ CÔNG KHAI: {PUBLIC_URL}")
-    print(f"==============================================\n")
-    
-    app.run(host='0.0.0.0', port=5000)
